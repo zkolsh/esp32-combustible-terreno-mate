@@ -1,5 +1,5 @@
 SKETCH := esp32-combustible-terreno-mate.ino
-LIBS := "MFRC522" "ArduinoJson"
+LIBS := "MFRC522" "ArduinoJson" "WiFi" "Networking" "SPI" "SPIFFS" "FS" "arduino-ds1302"
 
 all:
 	arduino-cli compile -b esp32:esp32:mhetesp32devkit $(SKETCH)

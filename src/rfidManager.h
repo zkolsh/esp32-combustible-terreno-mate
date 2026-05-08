@@ -1,14 +1,11 @@
+#ifndef RFIDMANAGER_H
+#define RFIDMANAGER_H
+
 #include <MFRC522.h>
 #include <vector>
 #include <ArduinoJson.h>
 
-#ifndef RFIDMANAGER_H
-#define RFIDMANAGER_H
-
-extern MFRC522 mfrc522;
-extern int32_t tanque;
-
-// Definir el tamaño máximo de la lista de tarjetas
+// Tamaño máximo de la lista de tarjetas
 #define MAX_CARDS 30
 #define CARD_LIST_FILE "/rfid_list.json"
 
@@ -19,156 +16,15 @@ struct RFIDCard {
 };
 
 // Lista de tarjetas RFID detectadas
-std::vector<RFIDCard> cardList;
+inline std::vector<RFIDCard> cardList;
 
-// Función para verificar si una tarjeta ya está en la lista
-int findCardInList(byte* cardID) {
-	for (size_t i = 0; i < cardList.size(); i++) {
-		if (memcmp(cardList[i].id, cardID, 4) == 0) {
-			return cardList[i].assignedNumber;
-		}
-	}
-	return -1;  // No encontrada
-}
-
-// Función para guardar la lista de tarjetas en SPIFFS
-
-void saveCardList() {
-	File file = SPIFFS.open(CARD_LIST_FILE, "w");
-	if (!file) {
-		Serial.println("Error al abrir el archivo para guardar la lista de tarjetas");
-		return;
-	}
-
-	JsonDocument doc{};
-	JsonArray array = doc.to<JsonArray>();
-
-	for (const auto& card : cardList) {
-		JsonObject obj = array.add<JsonObject>();
-		obj["id"] = String(card.id[0], HEX) + ":" + String(card.id[1], HEX) + ":" + String(card.id[2], HEX) + ":" + String(card.id[3], HEX);
-		obj["number"] = card.assignedNumber;
-	}
-
-	if (serializeJson(doc, file) == 0) {
-		Serial.println("Error al escribir en el archivo");
-	}
-
-	file.close();
-}
-
-// Función para añadir una nueva tarjeta a la lista
-void addCardToList(byte* cardID) {
-	if (cardList.size() < MAX_CARDS) {
-		RFIDCard newCard;
-		memcpy(newCard.id, cardID, 4);
-		newCard.assignedNumber = cardList.size() + 1;  // Asignar un número secuencial
-		cardList.push_back(newCard);
-		saveCardList();  // Guardar la lista después de añadir una tarjeta
-	} else {
-		Serial.println("Lista de tarjetas llena.");
-	}
-}
-
-// Función para cargar la lista de tarjetas desde SPIFFS
-void loadCardList() {
-	File file = SPIFFS.open(CARD_LIST_FILE, "r");
-	if (!file) {
-		Serial.println("No se encontró el archivo de lista de tarjetas");
-		return;
-	}
-
-	JsonDocument doc{};
-	DeserializationError error = deserializeJson(doc, file);
-	if (error) {
-		Serial.print("Error al leer el archivo de lista de tarjetas: ");
-		Serial.println(error.c_str());
-		file.close();
-		return;
-	}
-
-	JsonArray array = doc.as<JsonArray>();
-	cardList.clear();  // Limpiar la lista actual
-
-	for (const JsonObject& obj : array) {
-		RFIDCard card;
-		String idStr = obj["id"];
-		sscanf(idStr.c_str(), "%02hhX:%02hhX:%02hhX:%02hhX", &card.id[0], &card.id[1], &card.id[2], &card.id[3]);
-		card.assignedNumber = obj["number"];
-		cardList.push_back(card);
-	}
-
-	file.close();
-}
-
-// Función para manejar la lectura de tarjetas RFID
-void handleRFID() {
-	byte currentCardID[4];
-	memcpy(currentCardID, mfrc522.uid.uidByte, mfrc522.uid.size);
-
-	int cardNumber = findCardInList(currentCardID);
-
-	if (cardNumber == -1) {
-		addCardToList(currentCardID);
-		cardNumber = cardList.back().assignedNumber;
-		Serial.print("Nueva tarjeta añadida. Número asignado: ");
-		Serial.println(cardNumber);
-	} else {
-		Serial.print("Tarjeta ya registrada. Número asignado: ");
-		Serial.println(cardNumber);
-	}
-
-	// Enviar el número asignado en lugar de los pulsos perdidos
-	tanque = cardNumber;
-}
-
-// Función para mostrar la lista de tarjetas registradas
-void printCardList() {
-	Serial.println("Lista de tarjetas RFID:");
-	for (size_t i = 0; i < cardList.size(); i++) {
-		Serial.print("Tarjeta ");
-		Serial.print(i + 1);
-		Serial.print(": ");
-		for (int j = 0; j < 4; j++) {
-			Serial.print(cardList[i].id[j], HEX);
-			if (j < 3) Serial.print(":");
-		}
-		Serial.print(" -> Número asignado: ");
-		Serial.println(cardList[i].assignedNumber);
-	}
-}
-
-void handleCardDetection() {
-	Serial.println(">>> handleCardDetection()");
-	if (mfrc522.PICC_ReadCardSerial()) {  // Lee la ID de la tarjeta
-		byte currentCardID[4];
-		for (int i = 0; i < 4; i++) {
-			currentCardID[i] = mfrc522.uid.uidByte[i];  // Copia la ID de la tarjeta a un arreglo de bytes
-		}
-		// Compara la nueva ID con la última ID detectada
-		if (memcmp(currentCardID, lastCardID, sizeof(currentCardID)) != 0 || !cardPresent) {
-			memcpy(lastCardID, currentCardID, sizeof(currentCardID));
-			cardPresent = true;
-			RFIDDetectada = true;
-			lastCardTime = millis();  // Actualiza el tiempo de detección de la tarjeta
-			handleRFID();
-
-			// Imprime la ID de la tarjeta detectada en formato hexadecimal
-			Serial.print("Tarjeta detectada: ");
-			for (int i = 0; i < 4; i++) {
-				Serial.print(currentCardID[i], HEX);
-			}
-			Serial.println();
-		}
-	}
-	Serial.println("<<< handleCardDetection()");
-}
-
-void handleCardRemoval() {
-	if (!mfrc522.PICC_IsNewCardPresent()) {
-		cardPresent = false;
-		RFIDDetectada = false;
-		lastCardTime = 0;
-	}
-}
+int findCardInList(byte* cardID); // Función para verificar si una tarjeta ya está en la lista
+void saveCardList(); // Función para guardar la lista de tarjetas en SPIFFS
+void addCardToList(byte* cardID); // Función para añadir una nueva tarjeta a la lista
+void loadCardList(); // Función para cargar la lista de tarjetas desde SPIFFS
+void handleRFID(); // Función para manejar la lectura de tarjetas RFID
+void printCardList();
+void handleCardDetection();
+void handleCardRemoval();
 
 #endif

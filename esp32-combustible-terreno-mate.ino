@@ -42,8 +42,12 @@ unsigned long tiempoInicioTolerancia = 0;
 unsigned long tiempoInicioCarga = 0;
 unsigned long tiempoTolerancia = 3000;  //serían 3 segundos
 
-MFRC522 mfrc522(SS_PIN, RST_PIN);  //Instancia del lector de tarjetas
 char buff[BUFFER_SIZE];            //buffer de datos
+
+volatile byte pulseCount;   
+void IRAM_ATTR pulseCounter() {
+	pulseCount++;
+}
 
 void setup() {
   initSerial();
@@ -70,7 +74,7 @@ void setup() {
   loadCardList();
 
   //Conexion inicial a WIFI y Servidor
-  connectToWiFi(ssid, password);
+  connectToWiFi(WIFI_SSID, WIFI_PASSWORD);
   Serial.println("");
   Serial.println("To ST_Connecting...");
   estado = ST_CONNECTING;
@@ -194,8 +198,8 @@ void loop() {
   switch (estado) {
     case ST_CONNECTING:  //ok o error
       Serial.println(">>> ST_CONNECTING");
-      connectToWiFi(ssid, password);
-      if (!client.connect(host, port)) {
+      connectToWiFi(WIFI_SSID, WIFI_PASSWORD);
+      if (!client.connect(SERVER_HOST, SERVER_PORT)) {
         Serial.println("Conexion fallida, continuando con el programa");
         estado = ST_KEEP_ALIVE;
       } else {
