@@ -1,3 +1,4 @@
+#define FILE_NAME "/jdata.txt"
 #include "bufferSPIFFS.h"
 
 #include <SPIFFS.h>
@@ -50,6 +51,8 @@ void sendSavedData() {
 			return;
 		}
 
+		tempFile.close();
+
 		file = SPIFFS.open(FILE_NAME, "r");
 		while (file.available()) {
 			String line = file.readStringUntil('\n');
@@ -58,7 +61,6 @@ void sendSavedData() {
 			}
 		}
 		file.close();
-		tempFile.close();
 
 		// Borrar el archivo original y renombrar el archivo temporal
 		SPIFFS.remove(FILE_NAME);

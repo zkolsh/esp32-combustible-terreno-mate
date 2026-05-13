@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <atomic>
+#include <cstdint>
 #include <WiFi.h>
 #include <MFRC522.h>
 #include <DS1302.h>
@@ -16,8 +18,6 @@
 #define CLRBIT(var, nbit) ((var) &= ~(1UL << (nbit)))
 #define BITAT(var, nbit) ((var) & (1 << (nbit)))
 
-#define FILE_NAME "/jdata.txt"
-
 #define WIFI_SSID "EINGE"
 #define WIFI_PASSWORD "EINGE3EINGE"
 
@@ -29,19 +29,12 @@
 /* [WAITING_ACK_TIMEOUT]: ms */
 #define WAITING_ACK_TIMEOUT 5000
 
+#define TASK_STACK_SIZE 8192 /* words */
+#define MAX_REGISTRO_CARGAS 384
+
 extern bool cardPresent;
 extern const unsigned long cardTimeout; // Tiempo de espera para tarjeta
 extern byte lastCardID[4];
-
-extern long currentMillis;
-extern long previousMillis;
-extern int interval;
-extern float calibrationFactor;
-extern byte pulse1Sec;
-extern float flowRate;
-extern int packet;
-extern unsigned int flowMilliLitres;
-extern unsigned long totalMilliLitres;
 
 extern unsigned long lastCardTime;
 extern unsigned long cardDetectedSeconds;
@@ -49,6 +42,7 @@ extern unsigned long cardDetectedSeconds;
 extern unsigned long lastMillis;
 extern long seconds;
 extern long noEsperarACK;
+extern std::atomic<bool> pendingMcast;
 
 extern int RFIDDetectada; 
 extern unsigned long io;
@@ -56,18 +50,15 @@ extern unsigned long newIO;
 
 extern MFRC522 mfrc522;  //Instancia del lector de tarjetas
 extern WiFiClient client;
-extern int32_t totalPulses;
-extern int32_t lostPulses;
-extern int32_t tanque;
+extern uint16_t totalPulses;
+extern uint16_t lostPulses;
+extern int32_t idTanque;
 extern uint32_t tiempoTotalCarga;
 
 #define K_CE_PIN 26 /* Chip Enable */
 #define K_IO_PIN 25 /* Input/Output */
 #define K_SCLK_PIN 33 /* Serial Clock */
 extern DS1302 rtc;  // Instancia del RTC DS1302
-
-enum ST {ST_CONNECTING, ST_KEEP_ALIVE, ST_TUNNEL, ST_WAITING_ACK};
-extern ST estado;
 
 #define Q_MAX_SIZE 256
 extern char MsgBox_out[Q_MAX_SIZE];
@@ -95,6 +86,21 @@ struct DateTime_t
 	uint8_t mm;
 	uint8_t ss;
 	uint8_t weekDay;
+};
+
+struct Carga {
+	unsigned long io;
+	uint32_t tiempoCarga;
+	int32_t idTanque;
+	int32_t gasoilAisgnado;
+	int32_t gasoilNoAisgnado;
+	int32_t cargaPromedio;
+	uint16_t totalPulses;
+	uint16_t lostPulses;
+
+	bool IsMCast() const {
+		return lostPulses == UINT16_MAX && totalPulses == UINT16_MAX;
+	}
 };
 
 #endif

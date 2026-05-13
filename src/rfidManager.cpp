@@ -96,7 +96,7 @@ void handleRFID() {
 	}
 
 	// Enviar el número asignado en lugar de los pulsos perdidos
-	tanque = cardNumber;
+	idTanque = cardNumber;
 }
 
 void printCardList() {
@@ -115,35 +115,36 @@ void printCardList() {
 }
 
 void handleCardDetection() {
-	Serial.println(">>> handleCardDetection()");
-	if (mfrc522.PICC_ReadCardSerial()) {  // Lee la ID de la tarjeta
-		byte currentCardID[4];
-		for (int i = 0; i < 4; i++) {
-			currentCardID[i] = mfrc522.uid.uidByte[i];  // Copia la ID de la tarjeta a un arreglo de bytes
-		}
-		// Compara la nueva ID con la última ID detectada
-		if (memcmp(currentCardID, lastCardID, sizeof(currentCardID)) != 0 || !cardPresent) {
-			memcpy(lastCardID, currentCardID, sizeof(currentCardID));
-			cardPresent = true;
-			RFIDDetectada = true;
-			lastCardTime = millis();  // Actualiza el tiempo de detección de la tarjeta
-			handleRFID();
+	//Serial.println(">>> handleCardDetection()");
+	lastCardTime = millis();  // Actualiza el tiempo de detección de la tarjeta
+	cardPresent = true;
+	RFIDDetectada = true;
 
-			// Imprime la ID de la tarjeta detectada en formato hexadecimal
-			Serial.print("Tarjeta detectada: ");
-			for (int i = 0; i < 4; i++) {
-				Serial.print(currentCardID[i], HEX);
-			}
-			Serial.println();
-		}
+	byte currentCardID[4];
+	for (int i = 0; i < 4; i++) {
+		currentCardID[i] = mfrc522.uid.uidByte[i];  // Copia la ID de la tarjeta a un arreglo de bytes
 	}
-	Serial.println("<<< handleCardDetection()");
+
+	// Compara la nueva ID con la última ID detectada
+	const bool isNewCard = memcmp(currentCardID, lastCardID, sizeof(currentCardID)) != 0;
+	if (isNewCard) {
+		memcpy(lastCardID, currentCardID, sizeof(currentCardID));
+		handleRFID();
+
+		Serial.print("Tarjeta cambiada: ");
+		for (int i = 0; i < 4; i++) {
+			Serial.print(currentCardID[i], HEX);
+		}
+		Serial.println();
+	}
+
+	mfrc522.PICC_HaltA();
+	mfrc522.PCD_StopCrypto1();
+	//Serial.println("<<< handleCardDetection()");
 }
 
 void handleCardRemoval() {
-	if (!mfrc522.PICC_IsNewCardPresent()) {
-		cardPresent = false;
-		RFIDDetectada = false;
-		lastCardTime = 0;
-	}
+	cardPresent = false;
+	RFIDDetectada = false;
+	lastCardTime = 0;
 }
