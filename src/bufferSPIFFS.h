@@ -1,14 +1,15 @@
 #ifndef BUFFERSPIFFS_H
 #define BUFFERSPIFFS_H
 
-#include <SPIFFS.h>
 #include "config.h"
 
-void saveToSPIFFS(const char *dataJson);
+#include <SPIFFS.h>
+#include <cstdint>
 
-void sendSavedData(); 
+File getNewSPIFFS(); /* Con permiso de escritura */
+void saveToSPIFFS(File f, size_t length, const uint8_t* data);
 
-// Llamar a esta función periódicamente en el loop()
-void periodicSend();
+bool hasDataInSPIFFS();
+File openSPIFFS(); /* Solo lectura */
 
 #endif

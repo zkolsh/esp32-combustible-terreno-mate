@@ -42,7 +42,6 @@ extern unsigned long cardDetectedSeconds;
 extern unsigned long lastMillis;
 extern long seconds;
 extern long noEsperarACK;
-extern std::atomic<bool> pendingMcast;
 
 extern int RFIDDetectada; 
 extern unsigned long io;
@@ -92,11 +91,12 @@ struct Carga {
 	unsigned long io;
 	uint32_t tiempoCarga;
 	int32_t idTanque;
-	int32_t gasoilAisgnado;
-	int32_t gasoilNoAisgnado;
-	int32_t cargaPromedio;
+	int32_t gasoilAsignado;
+	int32_t gasoilNoAsignado;
+	float cargaPromedio;
 	uint16_t totalPulses;
 	uint16_t lostPulses;
+	Time time{0,0,0,0,0,0,Time::Day::kSunday};
 
 	bool IsMCast() const {
 		return lostPulses == UINT16_MAX && totalPulses == UINT16_MAX;

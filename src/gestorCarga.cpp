@@ -5,6 +5,7 @@
 #include "rfidManager.h"
 #include <Arduino.h>
 #include <cstdint>
+#include <DS1302.h>
 
 // Estados para la medición de carga
 enum class EstadoCarga {
@@ -39,7 +40,11 @@ static unsigned long tiempoTolerancia = 1000;  // serían 1 segundos
 
 static long currentMillis = 0;
 static byte pulse1Sec = 0;
-static float flowRate = 0;
+static float pulsesPerLitre = 4.5;
+static float flowRate = 0; /* Litros por segundo */
+static uint32_t flowMilliLitres = 0; /* Litros */
+static uint32_t totalMilliLitres = 0; /* Litros */
+static int32_t idTanquePrevio = 0;
 
 static void actualizarEstado();
 
@@ -60,12 +65,14 @@ static inline void registrarCarga(unsigned long io_) {
 	Carga c{};
 	c.io = io_;
 	c.tiempoCarga = tiempoTotalCarga;
-	c.gasoilAisgnado = 0;
-	c.gasoilNoAisgnado = 0;
-	c.idTanque = idTanque;
+	c.gasoilAsignado = 0;
+	c.gasoilNoAsignado = 0;
+	c.idTanque = idTanquePrevio;
 	c.cargaPromedio = 0;
 	c.totalPulses = totalPulses;
 	c.lostPulses = lostPulses;
+	c.time = rtc.time();
+	idTanquePrevio = 0;
 
 	if (RegistroCargas) {
 		RegistroCargas->push(std::move(c));
@@ -124,8 +131,23 @@ static void actualizarEstado() {
 	if (cardPresent || switchActive) {
 		SETBIT(newIO, 0);
 		digitalWrite(MOTOR_PIN, HIGH);
+
 		pulse1Sec = pulseCount;
 		totalPulses += pulseCount;
+
+		if ((currentMillis - lastMillis) > 1000) {
+			static long lastPrintMillis = millis();
+
+			flowRate = ((1000.0 / (currentMillis - lastMillis)) * pulseCount) / pulsesPerLitre;
+			flowMilliLitres = (flowRate / 60) * 1000;
+			totalMilliLitres += flowMilliLitres;
+
+			if ((lastPrintMillis - currentMillis) >= 1000) {
+				Serial.printf("Caudal: %f L/min \tTotal cargado: %f L" FDL, flowRate, float(totalMilliLitres) / 1000.0);
+				lastPrintMillis = millis();
+			};
+		};
+
 		pulseCount = 0;
 	} else {
 		CLRBIT(newIO, 0);
@@ -155,11 +177,10 @@ static void actualizarEstado() {
 		Serial.println(io);
 		Serial.println(newIO);
 
-		registrarMcast(io = newIO);
-		if (RegistroCargas) {
-			seconds = 60;
-			noEsperarACK = 1;
-		};
+		io = newIO;
+		registrarMcast(io);
+		seconds = 60;
+		noEsperarACK = 1;
 	}
 
 	// Máquina de estados de tiempo de carga
@@ -187,6 +208,7 @@ static void actualizarEstado() {
 				//cuando termina la tolerancia sigue contando tiempo de carga
 				estadoActual = EstadoCarga::ContandoCarga;
 				tiempoInicioCarga = millis();
+				idTanquePrevio = idTanque;
 			} else {
 				handleCardRemoval();
 				estadoActual = EstadoCarga::SinTarjeta;
@@ -196,10 +218,14 @@ static void actualizarEstado() {
 			break;
 
 		case EstadoCarga::ContandoCarga:
+			if (idTanque != 0 && idTanquePrevio != idTanque) {
+				idTanquePrevio = idTanque;
+			};
+
 			if (!cardPresent) {
 				estadoActual = EstadoCarga::SinTarjeta;  // Para conteo de carga si la tarjeta se saca y guarda el valor del tiempo total de carga
 				tiempoTotalCarga = (millis() - tiempoInicioCarga) / 1000;
-				registrarMcast(io);
+				// registrarMcast(io);
 				registrarCarga(io);
 			}
 			break;

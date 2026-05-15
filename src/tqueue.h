@@ -90,26 +90,21 @@ void TQueue<T, N>::realign() {
 	if (m_tail < m_head) {
 		std::lock_guard<std::mutex> lock(m_mutex);
 		const size_t n = count();
-		std::reverse(m_array.begin(), m_array.begin() + m_head);
-		std::reverse(m_array.begin(), m_array.begin() + n);
+		std::reverse(m_buffer.begin(), m_buffer.begin() + m_head);
+		std::reverse(m_buffer.begin(), m_buffer.begin() + n);
 		m_head = n;
 		m_tail = 0;
 	} else {
 		std::lock_guard<std::mutex> lock(m_mutex);
 		const size_t n = count();
-		std::reverse(m_array.begin() + m_head, m_array.end());
-		std::reverse(m_array.begin(), m_array.begin() + m_head);
-		std::reverse(m_array.begin(), m_array.end());
+		std::reverse(m_buffer.begin() + m_head, m_buffer.end());
+		std::reverse(m_buffer.begin(), m_buffer.begin() + m_head);
+		std::reverse(m_buffer.begin(), m_buffer.end());
 		m_head = n;
 		m_tail = 0;
 	};
 
 	m_cond.notify_one();
-};
-
-template<typename T, size_t N>
-T* TQueue<T, N>::data() {
-	return m_array.data();
 };
 
 #endif // TQUEUE_H

@@ -4,6 +4,7 @@
 #include "src/gestorTelemetria.h"
 
 #include <Arduino.h>
+#include <DS1302.h>
 #include <freertos/task.h>
 
 static TaskHandle_t carga = nullptr;
@@ -17,7 +18,6 @@ inline void initSerial() {
 
 void setup() {
   initSerial();
-  pendingMcast = false;
 
   // Configuración de Pines
   pinMode(MOTOR_PIN, OUTPUT);
@@ -25,6 +25,9 @@ void setup() {
   digitalWrite(LED_PIN, LOW);
   pinMode(SWITCH_PIN, INPUT_PULLUP);
   pinMode(SENSOR, INPUT_PULLUP);
+
+	rtc.halt(false);          // Asegura que el RTC no está detenido
+	rtc.writeProtect(false);  // Desactiva la protección de escritura
 
   // Creacion de tareas
   BaseType_t xr;

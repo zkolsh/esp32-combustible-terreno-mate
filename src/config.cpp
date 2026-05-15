@@ -10,7 +10,6 @@ unsigned long cardDetectedSeconds = 0;
 unsigned long lastMillis = 0;
 long seconds=0;
 long noEsperarACK=0;
-std::atomic<bool> pendingMcast;
 
 int RFIDDetectada = 0; 
 unsigned long io = 0;
